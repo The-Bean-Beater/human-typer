@@ -27,6 +27,7 @@ from AppKit import (
 
 # ── pyautogui ─────────────────────────────────────────────────────────────────
 pyautogui.PAUSE = 0
+pyautogui.FAILSAFE = False  # prevent corner-of-screen crash during typing
 
 # ── App appearance ────────────────────────────────────────────────────────────
 ctk.set_appearance_mode("dark")
@@ -149,7 +150,7 @@ def get_frontmost_pid():
     result = subprocess.run(['osascript', '-e', script], capture_output=True, text=True)
     try:
         return int(result.stdout.strip())
-    except:
+    except Exception:
         return None
 
 def _post_key(pid, keycode, down):
@@ -427,7 +428,7 @@ def load_history():
         try:
             with open(HISTORY_PATH) as f:
                 return json.load(f)
-        except:
+        except Exception:
             pass
     return []
 
@@ -446,7 +447,7 @@ def load_presets():
         try:
             with open(PRESETS_PATH) as f:
                 return json.load(f)
-        except:
+        except Exception:
             pass
     return {}
 
@@ -714,7 +715,7 @@ def update_counts(*_):
             est_lbl.configure(text=f"·  Est. {fmt_seconds(secs)}")
         else:
             est_lbl.configure(text="")
-    except:
+    except Exception:
         est_lbl.configure(text="")
 
 text_box.bind("<KeyRelease>", update_counts)
@@ -1006,12 +1007,12 @@ def start_typing():
         return
     try:
         wpm = float(wpm_entry.get())
-    except:
+    except Exception:
         set_status("Invalid WPM value.")
         return
     set_progress(0)
     save_to_history(text)
-    threading.Thread(target=type_text, args=(
+    threading.Thread(target=type_text, daemon=True, args=(
         text, wpm,
         typo_slider.get() / 100,
         bool(adjacent_var.get()),
