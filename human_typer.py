@@ -492,15 +492,6 @@ def load_settings():
             apply_config(cfg)
         except Exception:
             pass
-    wm = data.get('window_mode')
-    if wm:
-        try:
-            window_mode_menu.set(wm)
-            apply_window_mode(
-                {"Dock + Menu Bar": "both", "Dock Only": "dock",
-                 "Menu Bar Only": "menubar", "Neither": "neither"}.get(wm, "both"))
-        except Exception:
-            pass
     cm = data.get('color_mode')
     if cm:
         try:
@@ -508,6 +499,15 @@ def load_settings():
             ctk.set_appearance_mode(cm)
         except Exception:
             pass
+    # Always apply window mode (defaulting to both) — this also builds the menu bar
+    wm = data.get('window_mode', 'Dock + Menu Bar')
+    try:
+        window_mode_menu.set(wm)
+    except Exception:
+        pass
+    apply_window_mode(
+        {"Dock + Menu Bar": "both", "Dock Only": "dock",
+         "Menu Bar Only": "menubar", "Neither": "neither"}.get(wm, "both"))
 
 # ══════════════════════════════════════════════════════════════════════════════
 # GUI
@@ -611,8 +611,7 @@ def apply_window_mode(mode):
     else:
         ns_app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 
-# Default: show in both — defer until after mainloop starts so AppKit is ready
-app.after(0, _build_menu_bar)
+# Menu bar is built inside load_settings (deferred below)
 
 _ico_home_active = ctk.CTkImage(make_grid_icon(22, TEAL_RGB),  size=(22, 22))
 _ico_home_idle   = ctk.CTkImage(make_grid_icon(22, MUTED_RGB), size=(22, 22))
@@ -1449,7 +1448,7 @@ app.protocol("WM_DELETE_WINDOW", _on_close)
 app.createcommand('::tk::mac::ReopenApplication', lambda: _ui_queue.put("show"))
 
 show_page("main")
-app.after(0, load_settings)
+app.after(150, load_settings)
 app.update_idletasks()
 app.update()
 _poll_ui_queue()
