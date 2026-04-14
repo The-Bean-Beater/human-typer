@@ -34,10 +34,11 @@ pyautogui.FAILSAFE = False  # prevent corner-of-screen crash during typing
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-LOGO_PATH    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "human_typer_icon.png")
-PRESETS_PATH = os.path.expanduser("~/.humantyper_presets.json")
-HISTORY_PATH = os.path.expanduser("~/.humantyper_history.json")
-MAX_HISTORY  = 10
+LOGO_PATH     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "human_typer_icon.png")
+PRESETS_PATH  = os.path.expanduser("~/.humantyper_presets.json")
+HISTORY_PATH  = os.path.expanduser("~/.humantyper_history.json")
+SETTINGS_PATH = os.path.expanduser("~/.humantyper_settings.json")
+MAX_HISTORY   = 10
 
 # ── Thread-safe queue for AppKit → tkinter calls ─────────────────────────────
 _ui_queue = _queue_mod.Queue()
@@ -455,6 +456,58 @@ def load_presets():
 def save_presets(presets):
     with open(PRESETS_PATH, "w") as f:
         json.dump(presets, f, indent=2)
+
+# ── App settings (persists slider values, UI state, flags) ───────────────────
+def _load_settings_raw():
+    if os.path.exists(SETTINGS_PATH):
+        try:
+            with open(SETTINGS_PATH) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def _save_settings_raw(data):
+    try:
+        with open(SETTINGS_PATH, "w") as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+def save_settings():
+    try:
+        data = _load_settings_raw()
+        data['ui'] = get_current_config()
+        data['window_mode'] = window_mode_menu.get()
+        data['color_mode']  = mode_menu.get()
+        _save_settings_raw(data)
+    except Exception:
+        pass
+
+def load_settings():
+    data = _load_settings_raw()
+    cfg  = data.get('ui')
+    if cfg:
+        try:
+            apply_config(cfg)
+        except Exception:
+            pass
+    wm = data.get('window_mode')
+    if wm:
+        try:
+            window_mode_menu.set(wm)
+            apply_window_mode(
+                {"Dock + Menu Bar": "both", "Dock Only": "dock",
+                 "Menu Bar Only": "menubar", "Neither": "neither"}.get(wm, "both"))
+        except Exception:
+            pass
+    cm = data.get('color_mode')
+    if cm:
+        try:
+            mode_menu.set(cm)
+            ctk.set_appearance_mode(cm)
+        except Exception:
+            pass
 
 # ══════════════════════════════════════════════════════════════════════════════
 # GUI
@@ -1339,24 +1392,24 @@ def on_key_press(key):
 def on_key_release(key):
     _pressed.discard(key)
 
-def _check_accessibility():
-    """Prompt for Accessibility permission if not granted. Returns True if granted."""
-    trusted = AXIsProcessTrustedWithOptions({'AXTrustedCheckOptionPrompt': True})
-    return bool(trusted)
-
 def _start_hotkey_listener():
-    if not _check_accessibility():
-        # Not trusted yet — macOS will have shown the permission dialog.
-        # Schedule a retry; hotkeys won't work until the user grants access and restarts.
-        return
+    trusted = bool(AXIsProcessTrustedWithOptions({'AXTrustedCheckOptionPrompt': False}))
+    if not trusted:
+        # Only show the system permission dialog if we haven't prompted before
+        settings = _load_settings_raw()
+        if not settings.get('accessibility_prompted', False):
+            AXIsProcessTrustedWithOptions({'AXTrustedCheckOptionPrompt': True})
+            settings['accessibility_prompted'] = True
+            _save_settings_raw(settings)
+        return  # listener won't work until app is restarted after granting access
     try:
         listener = pynput_keyboard.Listener(
             on_press=on_key_press, on_release=on_key_release, daemon=True)
         listener.start()
     except Exception:
-        pass  # hotkeys unavailable — app still works without them
+        pass
 
-# Slight delay so the window is visible before the permission dialog appears
+# Slight delay so window is visible before any permission dialog appears
 app.after(500, _start_hotkey_listener)
 
 def _show_window():
@@ -1368,7 +1421,8 @@ def _show_window():
     app.after(50, app.update)  # second pass — ensures content is fully painted
 
 def _on_close():
-    app.withdraw()  # red X hides the window — use menu bar or dock to reopen, right-click menu bar to quit
+    save_settings()
+    app.withdraw()
 
 def _poll_ui_queue():
     try:
@@ -1378,6 +1432,7 @@ def _poll_ui_queue():
                 _show_window()
             elif cmd == "quit":
                 _pinned[0] = False
+                save_settings()
                 app.destroy()
                 os._exit(0)
             elif cmd == "toggle_pin":
@@ -1394,6 +1449,7 @@ app.protocol("WM_DELETE_WINDOW", _on_close)
 app.createcommand('::tk::mac::ReopenApplication', lambda: _ui_queue.put("show"))
 
 show_page("main")
+app.after(0, load_settings)
 app.update_idletasks()
 app.update()
 _poll_ui_queue()

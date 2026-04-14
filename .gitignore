@@ -4,6 +4,7 @@ __pycache__/
 .DS_Store
 .humantyper_presets.json
 .humantyper_history.json
+.humantyper_settings.json
 dist/
 build/
 *.egg-info/
