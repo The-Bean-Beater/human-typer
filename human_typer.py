@@ -599,7 +599,6 @@ def apply_window_mode(mode):
     global _status_item
     show_menubar = mode in ("both", "menubar")
     show_dock    = mode in ("both", "dock")
-
     if show_menubar and _status_item is None:
         _build_menu_bar()
     elif not show_menubar and _status_item is not None:
@@ -611,7 +610,8 @@ def apply_window_mode(mode):
     else:
         ns_app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 
-# Menu bar is built inside load_settings (deferred below)
+# Build menu bar immediately on the AppKit main thread (before mainloop)
+_build_menu_bar()
 
 _ico_home_active = ctk.CTkImage(make_grid_icon(22, TEAL_RGB),  size=(22, 22))
 _ico_home_idle   = ctk.CTkImage(make_grid_icon(22, MUTED_RGB), size=(22, 22))
