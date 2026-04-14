@@ -20,10 +20,11 @@ from Quartz import (
 )
 from AppKit import (
     NSStatusBar, NSApplication, NSObject,
-    NSMenu, NSMenuItem, NSImage,
+    NSMenu, NSMenuItem, NSImage, NSAlert,
     NSApplicationActivationPolicyRegular,
     NSApplicationActivationPolicyAccessory,
 )
+from ApplicationServices import AXIsProcessTrustedWithOptions
 
 # ── pyautogui ─────────────────────────────────────────────────────────────────
 pyautogui.PAUSE = 0
@@ -1338,9 +1339,25 @@ def on_key_press(key):
 def on_key_release(key):
     _pressed.discard(key)
 
-hotkey_listener = pynput_keyboard.Listener(
-    on_press=on_key_press, on_release=on_key_release, daemon=True)
-hotkey_listener.start()
+def _check_accessibility():
+    """Prompt for Accessibility permission if not granted. Returns True if granted."""
+    trusted = AXIsProcessTrustedWithOptions({'AXTrustedCheckOptionPrompt': True})
+    return bool(trusted)
+
+def _start_hotkey_listener():
+    if not _check_accessibility():
+        # Not trusted yet — macOS will have shown the permission dialog.
+        # Schedule a retry; hotkeys won't work until the user grants access and restarts.
+        return
+    try:
+        listener = pynput_keyboard.Listener(
+            on_press=on_key_press, on_release=on_key_release, daemon=True)
+        listener.start()
+    except Exception:
+        pass  # hotkeys unavailable — app still works without them
+
+# Slight delay so the window is visible before the permission dialog appears
+app.after(500, _start_hotkey_listener)
 
 def _show_window():
     app.deiconify()
