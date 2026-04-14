@@ -502,15 +502,6 @@ class _MenuDelegate(NSObject):
 
 _menu_delegate = _MenuDelegate.alloc().init()
 
-class _AppDelegate(NSObject):
-    """Handles dock icon click to reopen the hidden window."""
-    def applicationShouldHandleReopen_hasVisibleWindows_(self, app, hasVisibleWindows):
-        if not hasVisibleWindows:
-            _ui_queue.put("show")
-        return True
-
-_app_delegate = _AppDelegate.alloc().init()
-NSApplication.sharedApplication().setDelegate_(_app_delegate)
 
 def _build_menu_bar():
     global _status_item, _context_menu, _pin_item
@@ -1378,6 +1369,9 @@ def _poll_ui_queue():
     app.after(100, _poll_ui_queue)
 
 app.protocol("WM_DELETE_WINDOW", _on_close)
+
+# Dock icon clicked while window is hidden → show it
+app.createcommand('::tk::mac::ReopenApplication', lambda: _ui_queue.put("show"))
 
 show_page("main")
 _poll_ui_queue()
