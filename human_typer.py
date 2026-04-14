@@ -1344,9 +1344,11 @@ hotkey_listener.start()
 
 def _show_window():
     app.deiconify()
-    app.update()  # force full repaint before bringing window forward
+    app.update_idletasks()
+    app.update()
     app.lift()
     NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+    app.after(50, app.update)  # second pass — ensures content is fully painted
 
 def _on_close():
     app.withdraw()  # red X hides the window — use menu bar or dock to reopen, right-click menu bar to quit
@@ -1374,5 +1376,7 @@ app.protocol("WM_DELETE_WINDOW", _on_close)
 app.createcommand('::tk::mac::ReopenApplication', lambda: _ui_queue.put("show"))
 
 show_page("main")
+app.update_idletasks()
+app.update()
 _poll_ui_queue()
 app.mainloop()
