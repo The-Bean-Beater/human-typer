@@ -502,6 +502,16 @@ class _MenuDelegate(NSObject):
 
 _menu_delegate = _MenuDelegate.alloc().init()
 
+class _AppDelegate(NSObject):
+    """Handles dock icon click to reopen the hidden window."""
+    def applicationShouldHandleReopen_hasVisibleWindows_(self, app, hasVisibleWindows):
+        if not hasVisibleWindows:
+            _ui_queue.put("show")
+        return True
+
+_app_delegate = _AppDelegate.alloc().init()
+NSApplication.sharedApplication().setDelegate_(_app_delegate)
+
 def _build_menu_bar():
     global _status_item, _context_menu, _pin_item
 
@@ -1348,10 +1358,7 @@ def _show_window():
     NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
 
 def _on_close():
-    if _pinned[0]:
-        app.withdraw()  # hide but keep running — icon stays in menu bar
-    else:
-        app.quit()
+    app.withdraw()  # red X hides the window — use menu bar or dock to reopen, right-click menu bar to quit
 
 def _poll_ui_queue():
     try:
