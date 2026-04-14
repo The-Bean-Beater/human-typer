@@ -1361,7 +1361,8 @@ def _poll_ui_queue():
                 _show_window()
             elif cmd == "quit":
                 _pinned[0] = False
-                app.quit()
+                app.destroy()
+                os._exit(0)
             elif cmd == "toggle_pin":
                 _pinned[0] = not _pinned[0]
                 if _pin_item:
