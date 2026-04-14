@@ -558,8 +558,8 @@ def apply_window_mode(mode):
     else:
         ns_app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 
-# Default: show in both
-_build_menu_bar()
+# Default: show in both — defer until after mainloop starts so AppKit is ready
+app.after(0, _build_menu_bar)
 
 _ico_home_active = ctk.CTkImage(make_grid_icon(22, TEAL_RGB),  size=(22, 22))
 _ico_home_idle   = ctk.CTkImage(make_grid_icon(22, MUTED_RGB), size=(22, 22))
