@@ -599,18 +599,25 @@ def apply_window_mode(mode):
     global _status_item
     show_menubar = mode in ("both", "menubar")
     show_dock    = mode in ("both", "dock")
-    if show_menubar and _status_item is None:
-        _build_menu_bar()
-    elif not show_menubar and _status_item is not None:
+
+    # Remove status item first if switching away from menu bar
+    if not show_menubar and _status_item is not None:
         NSStatusBar.systemStatusBar().removeStatusItem_(_status_item)
         _status_item = None
 
+    # Set activation policy BEFORE building the status item — changing it
+    # after the item exists can destroy it on macOS 26+
     if show_dock:
         ns_app.setActivationPolicy_(NSApplicationActivationPolicyRegular)
     else:
         ns_app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 
-# Build menu bar immediately on the AppKit main thread (before mainloop)
+    # Build status item after policy is stable
+    if show_menubar and _status_item is None:
+        _build_menu_bar()
+
+# Set activation policy first, then build menu bar
+NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyRegular)
 _build_menu_bar()
 
 _ico_home_active = ctk.CTkImage(make_grid_icon(22, TEAL_RGB),  size=(22, 22))
